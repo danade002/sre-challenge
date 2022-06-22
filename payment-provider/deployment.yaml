@@ -1,3 +1,18 @@
+---
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-provider
+spec:
+  type: ClusterIP
+  selector:
+    app: payment-provider
+  ports:
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,6 +22,11 @@ spec:
   selector:
     matchLabels:
       app: payment-provider
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 50%
+      maxSurge: 10%
+    type: RollingUpdate
   template:
     metadata:
       labels:
@@ -14,7 +34,27 @@ spec:
     spec:
       containers:
       - name: main
-        image: payment-provider:latest
+        image: danielademeso/payment-provider:latest
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: app-port
+          timeoutSeconds: 5
+        ports:
+          - name: app-port
+            containerPort: 8082
+        resources:
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "64Mi"
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1005
+        runAsGroup: 1005
